@@ -1,0 +1,183 @@
+package org.AzSofware.azreconet.manager;
+
+import org.AzSofware.azreconet.config.ConfigManager;
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import com.velocitypowered.api.scheduler.ScheduledTask;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.slf4j.Logger;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public class ReconnectManager {
+
+    private final ProxyServer   proxy;
+    private final Logger        logger;
+    private final ConfigManager config;
+    private final Object        pluginInstance;
+
+    /** UUID pemain → nama server asal yang harus dituju saat reconnect. */
+    private final ConcurrentHashMap<UUID, String> pendingReconnect = new ConcurrentHashMap<>();
+
+    /**
+     * Satu AtomicBoolean & ScheduledTask per server yang sedang dipantau.
+     * Key = nama server.
+     */
+    private final ConcurrentHashMap<String, AtomicBoolean>  serverOfflineFlags = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ScheduledTask>  pingTasks          = new ConcurrentHashMap<>();
+
+    public ReconnectManager(ProxyServer proxy, Logger logger,
+                            ConfigManager config, Object pluginInstance) {
+        this.proxy          = proxy;
+        this.logger         = logger;
+        this.config         = config;
+        this.pluginInstance = pluginInstance;
+
+        // Inisialisasi flag offline untuk setiap monitored server
+        config.getMonitoredServers().keySet()
+                .forEach(name -> serverOfflineFlags.put(name, new AtomicBoolean(false)));
+    }
+
+    // ── Public API ─────────────────────────────────────────────────────────
+
+    /**
+     * Tandai player untuk reconnect ke {@code fromServer} nanti.
+     * Mulai ping scheduler untuk server tersebut jika belum berjalan.
+     */
+    public void markForReconnect(UUID playerId, String fromServer) {
+        pendingReconnect.put(playerId, fromServer);
+        logger.info("[Areconet] {} ditandai untuk reconnect ke '{}'.", playerId, fromServer);
+
+        AtomicBoolean flag = serverOfflineFlags.computeIfAbsent(fromServer, k -> new AtomicBoolean(false));
+        if (flag.compareAndSet(false, true)) {
+            startPingScheduler(fromServer);
+        }
+    }
+
+    public void removeFromReconnect(UUID playerId) {
+        String removed = pendingReconnect.remove(playerId);
+        if (removed != null) {
+            logger.info("[Areconet] {} dihapus dari daftar reconnect.", playerId);
+        }
+    }
+
+    public boolean isPendingReconnect(UUID playerId) {
+        return pendingReconnect.containsKey(playerId);
+    }
+
+    /** Ambil server tujuan reconnect player (untuk cek di listener). */
+    public Optional<String> getTargetServer(UUID playerId) {
+        return Optional.ofNullable(pendingReconnect.get(playerId));
+    }
+
+    public void shutdown() {
+        pingTasks.values().forEach(ScheduledTask::cancel);
+        pingTasks.clear();
+        pendingReconnect.clear();
+        serverOfflineFlags.clear();
+        logger.info("[Areconet] ReconnectManager dimatikan.");
+    }
+
+    // ── Ping Scheduler ─────────────────────────────────────────────────────
+
+    private void startPingScheduler(String serverName) {
+        long interval = config.getPingIntervalSeconds();
+        logger.info("[Areconet] Mulai memantau '{}' setiap {} detik.", serverName, interval);
+
+        ScheduledTask task = proxy.getScheduler()
+                .buildTask(pluginInstance, () -> checkServerStatus(serverName))
+                .repeat(interval, TimeUnit.SECONDS)
+                .schedule();
+
+        pingTasks.put(serverName, task);
+    }
+
+    private void stopPingScheduler(String serverName) {
+        ScheduledTask task = pingTasks.remove(serverName);
+        if (task != null) {
+            task.cancel();
+            logger.info("[Areconet] Scheduler ping '{}' dihentikan.", serverName);
+        }
+    }
+
+    private void checkServerStatus(String serverName) {
+        Optional<RegisteredServer> serverOpt = proxy.getServer(serverName);
+        if (serverOpt.isEmpty()) {
+            logger.warn("[Areconet] Server '{}' tidak terdaftar di Velocity!", serverName);
+            return;
+        }
+
+        serverOpt.get().ping().whenComplete((result, error) -> {
+            if (error != null) {
+                logger.debug("[Areconet] '{}' masih offline: {}", serverName, error.getMessage());
+                return;
+            }
+
+            logger.info("[Areconet] '{}' terdeteksi online! Memulai reconnect.", serverName);
+            AtomicBoolean flag = serverOfflineFlags.get(serverName);
+            if (flag != null) flag.set(false);
+
+            stopPingScheduler(serverName);
+            reconnectPlayersFor(serverName);
+        });
+    }
+
+    // ── Reconnect Logic ────────────────────────────────────────────────────
+
+    /**
+     * Kirim semua player yang asal-servernya adalah {@code serverName}
+     * kembali ke server tersebut setelah delay.
+     */
+    private void reconnectPlayersFor(String serverName) {
+        Optional<RegisteredServer> targetOpt = proxy.getServer(serverName);
+        if (targetOpt.isEmpty()) {
+            logger.error("[Areconet] Target reconnect '{}' tidak ditemukan!", serverName);
+            return;
+        }
+
+        RegisteredServer target    = targetOpt.get();
+        long             delay     = config.getReconnectDelaySeconds();
+
+        pendingReconnect.entrySet().stream()
+                .filter(e -> e.getValue().equals(serverName))
+                .map(Map.Entry::getKey)
+                .forEach(playerId ->
+                        proxy.getScheduler()
+                                .buildTask(pluginInstance, () -> sendPlayerToServer(playerId, target))
+                                .delay(delay, TimeUnit.SECONDS)
+                                .schedule()
+                );
+    }
+
+    private void sendPlayerToServer(UUID playerId, RegisteredServer target) {
+        String fromServer = pendingReconnect.remove(playerId);
+        if (fromServer == null) return; // sudah dikirim / dihapus
+
+        Optional<Player> playerOpt = proxy.getPlayer(playerId);
+        if (playerOpt.isEmpty()) {
+            logger.info("[Areconet] Player {} sudah offline, skip reconnect.", playerId);
+            return;
+        }
+
+        Player player = playerOpt.get();
+
+        if (player.hasPermission("areconet.bypass")) {
+            logger.info("[Areconet] '{}' memiliki bypass, skip reconnect.", player.getUsername());
+            return;
+        }
+
+        String displayName = config.getDisplayName(target.getServerInfo().getName());
+        player.sendMessage(Component.text(
+                "[Areconet] Server " + displayName + " sudah online! Menghubungkan kembali...",
+                NamedTextColor.GREEN));
+
+        player.createConnectionRequest(target).fireAndForget();
+        logger.info("[Areconet] '{}' dikirim kembali ke '{}'.",
+                player.getUsername(), target.getServerInfo().getName());
+    }
+}

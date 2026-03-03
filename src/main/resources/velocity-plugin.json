@@ -1,0 +1,8 @@
+{
+  "id": "areconet",
+  "name": "Areconet",
+  "version": "1.0.0",
+  "description": "Auto-reconnect system for Velocity proxy",
+  "authors": ["Areconet"],
+  "main": "com.areconet.Areconet"
+}

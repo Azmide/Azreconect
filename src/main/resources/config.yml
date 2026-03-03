@@ -1,0 +1,25 @@
+# =====================================================
+# Areconet - Auto-Reconnect Plugin for Velocity 3.x
+# =====================================================
+
+# Server fallback (hub utama)
+hub-server: hub
+
+# Delay (detik) sebelum player dikirim balik ke server asal setelah online
+reconnect-delay-seconds: 3
+
+# Interval (detik) antar pengecekan ping ke tiap monitored server
+ping-interval-seconds: 5
+
+# Daftar server yang dipantau
+# Tambahkan server sebanyak yang kamu mau!
+# Format per entry:
+#   name: nama server di velocity.toml
+#   display-name: nama yang tampil di chat player (opsional, default = name)
+monitored-servers:
+  - name: survival
+    display-name: "Survival"
+  - name: skyblock
+    display-name: "Skyblock"
+  - name: minigames
+    display-name: "Minigames"
