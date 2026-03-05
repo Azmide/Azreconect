@@ -16,12 +16,6 @@ import org.slf4j.Logger;
 
 import java.util.Optional;
 
-/**
- * ConnectionListener – Multi-Server
- *
- * Menangani kick dari server manapun yang ada di daftar monitored-servers,
- * bukan hanya satu server saja.
- */
 public class ConnectionListener {
 
     private final ProxyServer      proxy;
@@ -37,14 +31,11 @@ public class ConnectionListener {
         this.reconnectManager = reconnectManager;
     }
 
-    // ── KickedFromServerEvent ──────────────────────────────────────────────
-
     @Subscribe(order = PostOrder.EARLY)
     public void onKickedFromServer(KickedFromServerEvent event) {
         Player player     = event.getPlayer();
         String kickedFrom = event.getServer().getServerInfo().getName();
 
-        // Hanya proses jika server ada di daftar monitored
         if (!config.isMonitored(kickedFrom)) return;
 
         if (player.hasPermission("areconet.bypass")) {
@@ -73,21 +64,17 @@ public class ConnectionListener {
         reconnectManager.markForReconnect(player.getUniqueId(), kickedFrom);
     }
 
-    // ── ServerPostConnectEvent ─────────────────────────────────────────────
-
     @Subscribe(order = PostOrder.NORMAL)
     public void onServerPostConnect(ServerPostConnectEvent event) {
         Player player        = event.getPlayer();
         String currentServer = player.getCurrentServer()
                 .map(c -> c.getServerInfo().getName()).orElse("");
 
-        // Auto-join hub saat pertama masuk proxy
         if (event.getPreviousServer() == null) {
             sendToHub(player);
             return;
         }
 
-        // Jika player reconnect manual ke server yang ia tunggu, hapus dari list
         reconnectManager.getTargetServer(player.getUniqueId()).ifPresent(target -> {
             if (target.equalsIgnoreCase(currentServer)) {
                 reconnectManager.removeFromReconnect(player.getUniqueId());
@@ -97,15 +84,11 @@ public class ConnectionListener {
         });
     }
 
-    // ── DisconnectEvent ────────────────────────────────────────────────────
-
     @Subscribe(order = PostOrder.LAST)
     public void onDisconnect(DisconnectEvent event) {
         reconnectManager.removeFromReconnect(event.getPlayer().getUniqueId());
         logger.debug("[Areconet] '{}' disconnect dari proxy.", event.getPlayer().getUsername());
     }
-
-    // ── Helper ─────────────────────────────────────────────────────────────
 
     private void sendToHub(Player player) {
         Optional<RegisteredServer> hubOpt = proxy.getServer(config.getHubServer());

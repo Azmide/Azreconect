@@ -7,12 +7,6 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 
-/**
- * ConfigManager
- *
- * Membaca config.yml dan menyediakan nilai konfigurasi ke plugin.
- * Mendukung multiple monitored-servers (survival, skyblock, dll).
- */
 public class ConfigManager {
 
     private final Path   dataDirectory;
@@ -22,10 +16,6 @@ public class ConfigManager {
     private int                 reconnectDelaySeconds = 3;
     private int                 pingIntervalSeconds   = 5;
 
-    /**
-     * List server yang dipantau.
-     * Key = nama server (sesuai velocity.toml), Value = display name untuk chat.
-     */
     private final Map<String, String> monitoredServers = new LinkedHashMap<>();
 
     public ConfigManager(Path dataDirectory, Logger logger) {
@@ -33,7 +23,6 @@ public class ConfigManager {
         this.logger        = logger;
     }
 
-    // ── Load ───────────────────────────────────────────────────────────────
 
     public void load() {
         Path configFile = dataDirectory.resolve("config.yml");
@@ -89,26 +78,20 @@ public class ConfigManager {
         }
     }
 
-    // ── Getters ────────────────────────────────────────────────────────────
 
     public String              getHubServer()             { return hubServer; }
     public int                 getReconnectDelaySeconds() { return reconnectDelaySeconds; }
     public int                 getPingIntervalSeconds()   { return pingIntervalSeconds; }
 
-    /** Map nama-server → display-name untuk semua server yang dipantau. */
     public Map<String, String> getMonitoredServers()      { return Collections.unmodifiableMap(monitoredServers); }
 
-    /** Cek apakah suatu server ada di daftar monitored. */
     public boolean isMonitored(String serverName) {
         return monitoredServers.containsKey(serverName);
     }
 
-    /** Ambil display-name server (untuk ditampilkan di chat). */
     public String getDisplayName(String serverName) {
         return monitoredServers.getOrDefault(serverName, serverName);
     }
-
-    // ── Helpers ────────────────────────────────────────────────────────────
 
     private void saveDefaultConfig(Path dest) {
         try (InputStream in = getClass().getResourceAsStream("/config.yml")) {

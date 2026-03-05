@@ -21,13 +21,8 @@ public class ReconnectManager {
     private final ConfigManager config;
     private final Object        pluginInstance;
 
-    /** UUID pemain → nama server asal yang harus dituju saat reconnect. */
     private final ConcurrentHashMap<UUID, String> pendingReconnect = new ConcurrentHashMap<>();
 
-    /**
-     * Satu AtomicBoolean & ScheduledTask per server yang sedang dipantau.
-     * Key = nama server.
-     */
     private final ConcurrentHashMap<String, AtomicBoolean>  serverOfflineFlags = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ScheduledTask>  pingTasks          = new ConcurrentHashMap<>();
 
@@ -38,17 +33,10 @@ public class ReconnectManager {
         this.config         = config;
         this.pluginInstance = pluginInstance;
 
-        // Inisialisasi flag offline untuk setiap monitored server
         config.getMonitoredServers().keySet()
                 .forEach(name -> serverOfflineFlags.put(name, new AtomicBoolean(false)));
     }
 
-    // ── Public API ─────────────────────────────────────────────────────────
-
-    /**
-     * Tandai player untuk reconnect ke {@code fromServer} nanti.
-     * Mulai ping scheduler untuk server tersebut jika belum berjalan.
-     */
     public void markForReconnect(UUID playerId, String fromServer) {
         pendingReconnect.put(playerId, fromServer);
         logger.info("[Areconet] {} ditandai untuk reconnect ke '{}'.", playerId, fromServer);
@@ -70,7 +58,6 @@ public class ReconnectManager {
         return pendingReconnect.containsKey(playerId);
     }
 
-    /** Ambil server tujuan reconnect player (untuk cek di listener). */
     public Optional<String> getTargetServer(UUID playerId) {
         return Optional.ofNullable(pendingReconnect.get(playerId));
     }
@@ -82,8 +69,6 @@ public class ReconnectManager {
         serverOfflineFlags.clear();
         logger.info("[Areconet] ReconnectManager dimatikan.");
     }
-
-    // ── Ping Scheduler ─────────────────────────────────────────────────────
 
     private void startPingScheduler(String serverName) {
         long interval = config.getPingIntervalSeconds();
@@ -127,12 +112,6 @@ public class ReconnectManager {
         });
     }
 
-    // ── Reconnect Logic ────────────────────────────────────────────────────
-
-    /**
-     * Kirim semua player yang asal-servernya adalah {@code serverName}
-     * kembali ke server tersebut setelah delay.
-     */
     private void reconnectPlayersFor(String serverName) {
         Optional<RegisteredServer> targetOpt = proxy.getServer(serverName);
         if (targetOpt.isEmpty()) {
