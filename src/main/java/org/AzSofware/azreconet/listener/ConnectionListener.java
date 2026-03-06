@@ -1,6 +1,7 @@
 package org.AzSofware.azreconet.listener;
 
 import org.AzSofware.azreconet.config.ConfigManager;
+import org.AzSofware.azreconet.manager.QueueManager;
 import org.AzSofware.azreconet.manager.ReconnectManager;
 import com.velocitypowered.api.event.PostOrder;
 import com.velocitypowered.api.event.Subscribe;
@@ -22,13 +23,15 @@ public class ConnectionListener {
     private final Logger           logger;
     private final ConfigManager    config;
     private final ReconnectManager reconnectManager;
+    private final QueueManager queueManager;
 
     public ConnectionListener(ProxyServer proxy, Logger logger,
-                              ConfigManager config, ReconnectManager reconnectManager) {
+                              ConfigManager config, ReconnectManager reconnectManager, QueueManager queueManager) {
         this.proxy            = proxy;
         this.logger           = logger;
         this.config           = config;
         this.reconnectManager = reconnectManager;
+        this.queueManager = queueManager;
     }
 
     @Subscribe(order = PostOrder.EARLY)
@@ -53,9 +56,8 @@ public class ConnectionListener {
         }
 
         String displayName = config.getDisplayName(kickedFrom);
-        player.sendMessage(Component.text(
-                "[Areconet] Server " + displayName + " sedang offline. Dipindahkan ke hub...",
-                NamedTextColor.YELLOW));
+        String msg = config.formatServer(config.getMsgServerOffline(), displayName);
+        player.sendMessage(Component.text(msg));
 
         event.setResult(KickedFromServerEvent.RedirectPlayer.create(
                 hubOpt.get(),
@@ -71,7 +73,6 @@ public class ConnectionListener {
                 .map(c -> c.getServerInfo().getName()).orElse("");
 
         if (event.getPreviousServer() == null) {
-            sendToHub(player);
             return;
         }
 
@@ -87,6 +88,7 @@ public class ConnectionListener {
     @Subscribe(order = PostOrder.LAST)
     public void onDisconnect(DisconnectEvent event) {
         reconnectManager.removeFromReconnect(event.getPlayer().getUniqueId());
+        queueManager.removeFromQueue(event.getPlayer().getUniqueId());
         logger.debug("[Areconet] '{}' disconnect dari proxy.", event.getPlayer().getUsername());
     }
 

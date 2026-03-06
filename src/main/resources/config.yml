@@ -11,11 +11,29 @@ reconnect-delay-seconds: 3
 # Interval (detik) antar pengecekan ping ke tiap monitored server
 ping-interval-seconds: 5
 
-# Daftar server yang dipantau
-# Tambahkan server sebanyak yang kamu mau!
-# Format per entry:
-#   name: nama server di velocity.toml
-#   display-name: nama yang tampil di chat player (opsional, default = name)
+# Sistem Queue
+queue:
+  # Aktifkan/nonaktifkan sistem queue
+  enabled: true
+  # Jeda antar player yang masuk ke server (detik)
+  interval-seconds: 3
+  # Permission untuk skip antrian (masuk duluan tanpa nunggu)
+  priority-permission: "areconet.priority"
+  # Apakah player priority langsung masuk tanpa queue?
+  priority-skip-queue: true
+
+# Pesan & Prefix
+messages:
+  prefix: "&8[&bAreconet&8] &r"
+  server-offline: "&eServer {server} sedang offline. Kamu dipindahkan ke hub..."
+  server-online: "&aServer {server} sudah online! Menghubungkan kembali..."
+  queue-enter: "&7Kamu masuk antrian ke server &b{server}&7. Posisi: &f#{position}"
+  queue-position: "&7Posisi antrian kamu: &f#{position} &7dari &f{total}"
+  queue-connecting: "&aGiliran kamu! Menghubungkan ke &b{server}&a..."
+  queue-bypass: "&aKamu memiliki prioritas! Langsung masuk ke &b{server}&a..."
+  bypass-reconnect: "&7Kamu memiliki bypass, tidak akan di-reconnect otomatis."
+
+# ── Daftar Server yang Dipantau ───────────────────────────────────────────
 monitored-servers:
   - name: survival
     display-name: "Survival"

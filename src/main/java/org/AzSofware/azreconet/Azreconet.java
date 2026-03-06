@@ -2,6 +2,7 @@ package org.AzSofware.azreconet;
 
 import org.AzSofware.azreconet.config.ConfigManager;
 import org.AzSofware.azreconet.listener.ConnectionListener;
+import org.AzSofware.azreconet.manager.QueueManager;
 import org.AzSofware.azreconet.manager.ReconnectManager;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
@@ -27,8 +28,9 @@ public class Azreconet {
     private final Logger      logger;
     private final Path        dataDirectory;
 
-    private ConfigManager    configManager;
+    private ConfigManager configManager;
     private ReconnectManager reconnectManager;
+    private QueueManager queueManager;
 
     @Inject
     public Azreconet(ProxyServer proxy, Logger logger,
@@ -48,10 +50,11 @@ public class Azreconet {
             configManager = new ConfigManager(dataDirectory, logger);
             configManager.load();
 
-            reconnectManager = new ReconnectManager(proxy, logger, configManager, this);
+            reconnectManager = new ReconnectManager(proxy, logger, configManager, this, queueManager);
+            queueManager = new QueueManager (proxy, logger, configManager, this);
 
             ConnectionListener connectionListener =
-                    new ConnectionListener(proxy, logger, configManager, reconnectManager);
+                    new ConnectionListener(proxy, logger, configManager, reconnectManager, queueManager);
             proxy.getEventManager().register(this, connectionListener);
 
             logger.info("[Areconet] Plugin berhasil dimuat!");
@@ -70,6 +73,7 @@ public class Azreconet {
         try {
             if (reconnectManager != null) {
                 reconnectManager.shutdown();
+                queueManager.shutdown();
             }
             logger.info("[Areconet] Plugin berhasil dimatikan.");
         } catch (Exception e) {

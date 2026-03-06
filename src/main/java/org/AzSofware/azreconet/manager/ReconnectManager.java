@@ -20,6 +20,7 @@ public class ReconnectManager {
     private final Logger        logger;
     private final ConfigManager config;
     private final Object        pluginInstance;
+    private final QueueManager queueManager;
 
     private final ConcurrentHashMap<UUID, String> pendingReconnect = new ConcurrentHashMap<>();
 
@@ -27,11 +28,12 @@ public class ReconnectManager {
     private final ConcurrentHashMap<String, ScheduledTask>  pingTasks          = new ConcurrentHashMap<>();
 
     public ReconnectManager(ProxyServer proxy, Logger logger,
-                            ConfigManager config, Object pluginInstance) {
+                            ConfigManager config, Object pluginInstance, QueueManager queueManager) {
         this.proxy          = proxy;
         this.logger         = logger;
         this.config         = config;
         this.pluginInstance = pluginInstance;
+        this.queueManager   = queueManager;
 
         config.getMonitoredServers().keySet()
                 .forEach(name -> serverOfflineFlags.put(name, new AtomicBoolean(false)));
@@ -135,7 +137,7 @@ public class ReconnectManager {
 
     private void sendPlayerToServer(UUID playerId, RegisteredServer target) {
         String fromServer = pendingReconnect.remove(playerId);
-        if (fromServer == null) return; // sudah dikirim / dihapus
+        if (fromServer == null) return;
 
         Optional<Player> playerOpt = proxy.getPlayer(playerId);
         if (playerOpt.isEmpty()) {
@@ -146,17 +148,24 @@ public class ReconnectManager {
         Player player = playerOpt.get();
 
         if (player.hasPermission("areconet.bypass")) {
-            logger.info("[Areconet] '{}' memiliki bypass, skip reconnect.", player.getUsername());
+            String msg = config.format(config.getMsgBypassReconnect());
+            player.sendMessage(Component.text(msg));
+            logger.info("[Areconet] '{}' bypass reconnect.", player.getUsername());
             return;
         }
 
         String displayName = config.getDisplayName(target.getServerInfo().getName());
-        player.sendMessage(Component.text(
-                "[Areconet] Server " + displayName + " sudah online! Menghubungkan kembali...",
-                NamedTextColor.GREEN));
+        String msg = config.formatServer(config.getMsgServerOnline(), displayName);
+        player.sendMessage(Component.text(msg));
 
-        player.createConnectionRequest(target).fireAndForget();
-        logger.info("[Areconet] '{}' dikirim kembali ke '{}'.",
+        // Gunakan queue jika aktif, langsung kirim jika tidak
+        if (config.isQueueEnabled()) {
+            queueManager.addToQueue(player, target.getServerInfo().getName());
+        } else {
+            player.createConnectionRequest(target).fireAndForget();
+        }
+
+        logger.info("[Areconet] '{}' proses reconnect ke '{}'.",
                 player.getUsername(), target.getServerInfo().getName());
     }
 }
