@@ -20,6 +20,7 @@ public class ConfigManager {
     private String hubServer             = "hub";
     private int    reconnectDelaySeconds = 3;
     private int    pingIntervalSeconds   = 5;
+    public int     cooldownSeconds        = 10;
 
     // Queue
     private boolean queueEnabled          = true;
@@ -36,6 +37,11 @@ public class ConfigManager {
     private String msgQueueConnecting= "&aGiliran kamu! Menghubungkan ke &b{server}&a...";
     private String msgQueueBypass    = "&aKamu memiliki prioritas! Langsung masuk ke &b{server}&a...";
     private String msgBypassReconnect= "&7Kamu memiliki bypass, tidak akan di-reconnect otomatis.";
+    private String msgQueueAlready        = "&cKamu sudah dalam antrian server &e{server}&c!";
+    private String msgQueueCooldown       = "&cTunggu &e{seconds} detik &csebelum bisa queue lagi.";
+    private String msgQueueNotFound       = "&cServer &e{server} &ctidak ditemukan!";
+    private String msgQueueNotMonitored   = "&cServer &e{server} &ctidak ada dalam daftar server.";
+    private String msgQueueAlreadyConn    = "&cKamu sudah berada di server &e{server}&c!";
 
     // Monitored servers
     private final Map<String, String> monitoredServers = new LinkedHashMap<>();
@@ -71,6 +77,7 @@ public class ConfigManager {
                 queueIntervalSeconds = getInt((Map<String,Object>)(Map<?,?>)q, "interval-seconds", queueIntervalSeconds);
                 priorityPermission   = getString((Map<String,Object>)(Map<?,?>)q, "priority-permission", priorityPermission);
                 prioritySkipQueue    = getBool((Map<String,Object>)(Map<?,?>)q, "priority-skip-queue", prioritySkipQueue);
+                cooldownSeconds = getInt((Map<String,Object>)(Map<?,?>)q, "cooldown-seconds", cooldownSeconds);
             }
 
             // Messages
@@ -84,6 +91,11 @@ public class ConfigManager {
                 msgQueueConnecting = getString(msgs, "queue-connecting",  msgQueueConnecting);
                 msgQueueBypass     = getString(msgs, "queue-bypass",     msgQueueBypass);
                 msgBypassReconnect = getString(msgs, "bypass-reconnect", msgBypassReconnect);
+                msgQueueAlready      = getString(msgs, "queue-already",           msgQueueAlready);
+                msgQueueCooldown     = getString(msgs, "queue-cooldown",          msgQueueCooldown);
+                msgQueueNotFound     = getString(msgs, "queue-server-not-found",  msgQueueNotFound);
+                msgQueueNotMonitored = getString(msgs, "queue-server-not-monitored", msgQueueNotMonitored);
+                msgQueueAlreadyConn  = getString(msgs, "queue-already-connected", msgQueueAlreadyConn);
             }
 
             // Monitored servers
@@ -120,6 +132,11 @@ public class ConfigManager {
         return colorize((msgPrefix + message).replace("{server}", server));
     }
 
+    /** Format pesan dengan placeholder {seconds}. */
+    public String formatCooldown(String message, int seconds) {
+        return colorize((msgPrefix + message).replace("{seconds}", String.valueOf(seconds)));
+    }
+
     /** Format pesan dengan placeholder {server}, {position}, {total}. */
     public String formatQueue(String message, String server, int position, int total) {
         return colorize((msgPrefix + message)
@@ -149,6 +166,7 @@ public class ConfigManager {
     public int     getQueueIntervalSeconds()  { return queueIntervalSeconds; }
     public String  getPriorityPermission()    { return priorityPermission; }
     public boolean isPrioritySkipQueue()      { return prioritySkipQueue; }
+    public int    getCooldownSeconds()      { return cooldownSeconds; }
 
     public String getMsgServerOffline()   { return msgServerOffline; }
     public String getMsgServerOnline()    { return msgServerOnline; }
@@ -157,6 +175,11 @@ public class ConfigManager {
     public String getMsgQueueConnecting() { return msgQueueConnecting; }
     public String getMsgQueueBypass()     { return msgQueueBypass; }
     public String getMsgBypassReconnect() { return msgBypassReconnect; }
+    public String getMsgQueueAlready()      { return msgQueueAlready; }
+    public String getMsgQueueCooldown()     { return msgQueueCooldown; }
+    public String getMsgQueueNotFound()     { return msgQueueNotFound; }
+    public String getMsgQueueNotMonitored() { return msgQueueNotMonitored; }
+    public String getMsgQueueAlreadyConn()  { return msgQueueAlreadyConn; }
 
     public Map<String, String> getMonitoredServers() { return Collections.unmodifiableMap(monitoredServers); }
     public boolean isMonitored(String name)          { return monitoredServers.containsKey(name); }

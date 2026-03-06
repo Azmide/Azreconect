@@ -1,5 +1,7 @@
 package org.AzSofware.azreconet;
 
+import com.velocitypowered.api.command.CommandMeta;
+import org.AzSofware.azreconet.command.QueueCommand;
 import org.AzSofware.azreconet.config.ConfigManager;
 import org.AzSofware.azreconet.listener.ConnectionListener;
 import org.AzSofware.azreconet.manager.QueueManager;
@@ -50,8 +52,16 @@ public class Azreconet {
             configManager = new ConfigManager(dataDirectory, logger);
             configManager.load();
 
-            reconnectManager = new ReconnectManager(proxy, logger, configManager, this, queueManager);
             queueManager = new QueueManager (proxy, logger, configManager, this);
+            reconnectManager = new ReconnectManager(proxy, logger, configManager, this, queueManager);
+
+            CommandMeta meta = proxy.getCommandManager()
+                    .metaBuilder("queue")
+                    .aliases("q", "joinserver")   // alias opsional
+                    .plugin(this)
+                    .build();
+            proxy.getCommandManager().register(meta, new QueueCommand(configManager, queueManager, proxy));
+            logger.info("[Areconet] Command /queue berhasil didaftarkan.");
 
             ConnectionListener connectionListener =
                     new ConnectionListener(proxy, logger, configManager, reconnectManager, queueManager);

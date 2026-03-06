@@ -87,8 +87,8 @@ public class ConnectionListener {
 
     @Subscribe(order = PostOrder.LAST)
     public void onDisconnect(DisconnectEvent event) {
-        reconnectManager.removeFromReconnect(event.getPlayer().getUniqueId());
         queueManager.removeFromQueue(event.getPlayer().getUniqueId());
+        reconnectManager.removeFromReconnect(event.getPlayer().getUniqueId());
         logger.debug("[Areconet] '{}' disconnect dari proxy.", event.getPlayer().getUsername());
     }
 

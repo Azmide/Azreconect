@@ -21,6 +21,8 @@ queue:
   priority-permission: "areconet.priority"
   # Apakah player priority langsung masuk tanpa queue?
   priority-skip-queue: true
+  # Cooldown sebelum player bisa /queue lagi (detik)
+  cooldown-seconds: 10
 
 # Pesan & Prefix
 messages:
@@ -32,8 +34,13 @@ messages:
   queue-connecting: "&aGiliran kamu! Menghubungkan ke &b{server}&a..."
   queue-bypass: "&aKamu memiliki prioritas! Langsung masuk ke &b{server}&a..."
   bypass-reconnect: "&7Kamu memiliki bypass, tidak akan di-reconnect otomatis."
+  queue-already: "&cKamu sudah dalam antrian server &e{server}&c!"
+  queue-cooldown: "&cTunggu &e{seconds} detik &csebelum bisa queue lagi."
+  queue-server-not-found: "&cServer &e{server} &ctidak ditemukan!"
+  queue-server-not-monitored: "&cServer &e{server} &ctidak ada dalam daftar server."
+  queue-already-connected: "&cKamu sudah berada di server &e{server}&c!"
 
-# ── Daftar Server yang Dipantau ───────────────────────────────────────────
+# Daftar Server yang Dipantau
 monitored-servers:
   - name: survival
     display-name: "Survival"
